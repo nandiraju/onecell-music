@@ -208,9 +208,9 @@ body {
    from .cube above and is why these are two separate rules rather than one
    computed value: written as `rotateY(..) translateZ(..)` (rotate before
    translate), reversing it silently puts the face in the wrong place. Same
-   no-overflow/filter/backdrop-filter/mask rule applies here; glass effects
-   live one level deeper, on .stage-card / .playlist-panel, which never
-   carry a 3D transform of their own. */
+   no-overflow/filter/backdrop-filter/mask rule applies here (.stage-card /
+   .playlist-panel / .settings-panel, one level deeper, no longer use
+   backdrop-filter at all — see those rules for why). */
 .cube-face {
   position: absolute;
   inset: 0;
@@ -252,6 +252,19 @@ body {
    stays visible the whole way through. */
 .cube-face--settled-back {
   visibility: hidden;
+}
+
+/* Applied to whichever face is both active and not mid-transition.
+   backface-visibility:hidden only has any visual effect once a face is
+   rotated past 90° — at rest the active face is always front-facing, so
+   dropping it back to visible here is a pure no-op visually. It's a
+   genuine suspect for iOS Safari specifically: backface-visibility on an
+   ancestor of a touch-scrolling region, inside a 3D transform context,
+   is a separate well-documented class of WebKit touch/scroll bug from
+   the backdrop-filter one fixed alongside this. */
+.cube-face--settled-active {
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
 }
 
 /* Floating nav that hops between the Now Playing and Library cube faces */
@@ -363,9 +376,12 @@ body {
 
 /* Stage Card (Visualizer + Controls) */
 .stage-card {
-  background: var(--bg-surface);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  /* No backdrop-filter — same reasoning as .playlist-panel/.settings-panel:
+     iOS Safari's backdrop-filter has well-documented bugs with
+     touch-scroll on descendants when nested inside a 3D transform
+     context (this card lives inside .cube). This one also carries its
+     own safety-net overflow-y:auto below. */
+  background: rgba(13, 18, 36, 0.92);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-gloss);
@@ -930,9 +946,13 @@ body {
    its actual height to 100% of the face; sticky positioning doesn't apply
    inside that absolutely-positioned, non-scrolling ancestor. */
 .playlist-panel {
-  background: var(--bg-surface);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  /* No backdrop-filter here (was blur(28px) saturate(190%)) — iOS Safari
+     has well-documented bugs where backdrop-filter on an element nested
+     inside a 3D transform context (this card lives inside .cube, which
+     is perspective/preserve-3d) can break touch-scroll recognition on
+     its own descendants. Solid-ish background instead of translucent +
+     blur, since there's no blur left to soften what shows through. */
+  background: rgba(13, 18, 36, 0.92);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-gloss);
@@ -1350,9 +1370,8 @@ body {
    Settings Screen (third cube face)
    ========================================================================== */
 .settings-panel {
-  background: var(--bg-surface);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  /* Same reasoning as .playlist-panel above — no backdrop-filter. */
+  background: rgba(13, 18, 36, 0.92);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-gloss);

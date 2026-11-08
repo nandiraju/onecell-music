@@ -549,7 +549,7 @@ export default function App() {
           >
 
             <div
-              className={`cube-face cube-face--player ${!isCubeAnimating && activeScreen !== 'player' ? 'cube-face--settled-back' : ''}`}
+              className={`cube-face cube-face--player ${!isCubeAnimating && activeScreen !== 'player' ? 'cube-face--settled-back' : ''} ${!isCubeAnimating && activeScreen === 'player' ? 'cube-face--settled-active' : ''}`}
               inert={isCubeAnimating || activeScreen !== 'player'}
             >
               {/* Visualizer Stage */}
@@ -604,7 +604,7 @@ export default function App() {
             </div>
 
             <div
-              className={`cube-face cube-face--library ${!isCubeAnimating && activeScreen !== 'library' ? 'cube-face--settled-back' : ''}`}
+              className={`cube-face cube-face--library ${!isCubeAnimating && activeScreen !== 'library' ? 'cube-face--settled-back' : ''} ${!isCubeAnimating && activeScreen === 'library' ? 'cube-face--settled-active' : ''}`}
               inert={isCubeAnimating || activeScreen !== 'library'}
             >
               {/* Track Library */}
@@ -625,7 +625,7 @@ export default function App() {
             </div>
 
             <div
-              className={`cube-face cube-face--settings ${!isCubeAnimating && activeScreen !== 'settings' ? 'cube-face--settled-back' : ''}`}
+              className={`cube-face cube-face--settings ${!isCubeAnimating && activeScreen !== 'settings' ? 'cube-face--settled-back' : ''} ${!isCubeAnimating && activeScreen === 'settings' ? 'cube-face--settled-active' : ''}`}
               inert={isCubeAnimating || activeScreen !== 'settings'}
             >
               <SettingsScreen
