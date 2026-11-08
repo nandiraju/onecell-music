@@ -183,6 +183,21 @@ describe('App', () => {
       expect(requestFullscreenSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('nav-row maximize button hides once the CSS-only pseudo-fullscreen fallback kicks in (regression: showed alongside the in-visualizer exit button, looking like two maximize buttons)', async () => {
+      render(<App />);
+      const visualizer = document.querySelector('.visualizer-container');
+      // No native Fullscreen API at all (the real iOS Safari case this
+      // fallback exists for).
+      visualizer.requestFullscreen = undefined;
+
+      expect(document.querySelector('.vis-fullscreen-nav-btn')).toBeInTheDocument();
+      act(() => { fireEvent.click(screen.getByTitle('Fullscreen Visualizer (F)')); });
+      await flush();
+
+      expect(document.querySelector('.vis-fullscreen-nav-btn')).not.toBeInTheDocument();
+      expect(screen.getByTitle('Exit Fullscreen (F)')).toBeInTheDocument();
+    });
+
     it('shortcuts are ignored while typing in the search box (Space must not toggle playback)', () => {
       render(<App />);
       const searchInput = screen.getByPlaceholderText('Search title, genre, BPM, tone...');

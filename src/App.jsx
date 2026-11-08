@@ -29,6 +29,10 @@ function loadSettings() {
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [introForce, setIntroForce] = useState(false);
+  // True while the visualizer's CSS-only pseudo-fullscreen fallback is
+  // active (iOS, no real Fullscreen API). Hides the nav-row maximize
+  // button so it doesn't double up with the in-visualizer exit control.
+  const [isVisualizerFullscreen, setIsVisualizerFullscreen] = useState(false);
   const [tracks] = useState(TRACKS_DATA);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -557,6 +561,7 @@ export default function App() {
                   accentColor={currentTrack.color}
                   secondaryColor={currentTrack.accent}
                   defaultMode={settings.visualizerMode}
+                  onFullscreenActiveChange={setIsVisualizerFullscreen}
                 />
 
                 <div className="active-track-panel">
@@ -656,13 +661,15 @@ export default function App() {
           >
             <SettingsIcon size={16} />
           </button>
-          <button
-            className="vis-fullscreen-nav-btn"
-            onClick={() => visualizerRef.current?.toggleFullscreen()}
-            title="Fullscreen Visualizer (F)"
-          >
-            <Maximize2 size={16} />
-          </button>
+          {!isVisualizerFullscreen && (
+            <button
+              className="vis-fullscreen-nav-btn"
+              onClick={() => visualizerRef.current?.toggleFullscreen()}
+              title="Fullscreen Visualizer (F)"
+            >
+              <Maximize2 size={16} />
+            </button>
+          )}
         </>
       ) : (
         <button

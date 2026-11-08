@@ -69,13 +69,30 @@ export default function Playlist({
   // Motion: a quick spring pulse on whichever card just became active, so
   // picking a track (from here or from the Now Playing screen) reads as a
   // deliberate, physical selection rather than an instant CSS color swap.
+  // Skipped on first mount: this component never unmounts (the Library
+  // cube face stays mounted, just inert, for the app's whole lifetime), so
+  // "first mount" means the default track (index 0) at true app load —
+  // there's no real selection to pulse yet. Firing it anyway raced the
+  // reveal effect above: both target the same (active) card, and this
+  // tween's overwrite:true killed the reveal's still-in-flight opacity/y
+  // animation on that one card, leaving it permanently stuck invisible at
+  // its pre-animation offset — an empty gap where track 1 should be.
+  const skipNextPulseRef = useRef(true);
   useEffect(() => {
+    if (skipNextPulseRef.current) {
+      skipNextPulseRef.current = false;
+      return;
+    }
     const active = listRef.current?.querySelector('.track-item-card.active');
     if (!active) return;
     gsap.fromTo(
       active,
       { scale: 1.05 },
-      { scale: 1, duration: 0.5, ease: 'elastic.out(1, 0.55)', overwrite: true }
+      // 'auto' (not true): only overwrites tweens on the properties this
+      // one actually touches (scale), so it can't stomp an unrelated
+      // in-flight opacity/y animation on the same card from the reveal
+      // effect above — belt-and-suspenders alongside the first-mount skip.
+      { scale: 1, duration: 0.5, ease: 'elastic.out(1, 0.55)', overwrite: 'auto' }
     );
   }, [currentTrackIndex]);
 

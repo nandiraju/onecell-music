@@ -8,7 +8,8 @@ const VisualizerCanvas = forwardRef(function VisualizerCanvas({
   isPlaying,
   accentColor = '#00f0ff',
   secondaryColor = '#7000ff',
-  defaultMode = 'spectrum'
+  defaultMode = 'spectrum',
+  onFullscreenActiveChange
 }, ref) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -529,6 +530,15 @@ const VisualizerCanvas = forwardRef(function VisualizerCanvas({
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [pseudoFullscreen]);
+
+  // Tell App.jsx when the CSS-only pseudo-fullscreen fallback is active so
+  // it can hide the nav-row maximize button — otherwise, since that button
+  // sits above the pseudo-fullscreen overlay (it has to, to stay reachable
+  // at all), it shows alongside this component's own in-visualizer exit
+  // button: two maximize-looking controls on screen at once.
+  useEffect(() => {
+    onFullscreenActiveChange?.(pseudoFullscreen);
+  }, [pseudoFullscreen, onFullscreenActiveChange]);
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;

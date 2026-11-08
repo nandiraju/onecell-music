@@ -932,7 +932,10 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: static;
+  /* Was `static` — inconsistent with .stage-card/.settings-panel (both
+     relative) and broke ::before's absolute positioning, which fell back
+     to resolving against a further-up ancestor instead of this card. */
+  position: relative;
 }
 
 .playlist-panel::before {
