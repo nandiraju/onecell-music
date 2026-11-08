@@ -1052,6 +1052,13 @@ body {
 
 .playlist-tracks-scroll {
   flex: 1;
+  /* Explicit, not relying on the spec rule that overflow != visible
+     already implies automatic min-size:0 on a flex item — older/buggy
+     WebKit has not always honored that correctly, which would leave this
+     item refusing to shrink below its content size and never actually
+     triggering its own scrollbar. Costs nothing on engines that already
+     get it right. */
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
