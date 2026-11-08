@@ -58,12 +58,19 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
-  /* Allow normal panning but disable pinch-zoom and double-tap-zoom —
-     the viewport meta's user-scalable=no is silently ignored by iOS
-     Safari 10+ for accessibility, touch-action is the part it still
-     honors. */
-  touch-action: pan-x pan-y;
-  background-image: 
+  /* NOT setting touch-action here (previously pan-x pan-y, to block
+     pinch/double-tap zoom): iOS Safari has long-standing bugs where a
+     touch-action restriction on an ancestor spanning the whole viewport
+     can interfere with a descendant's own scroll-gesture recognition —
+     even though the CSS Touch Action spec's intersection algorithm says
+     it shouldn't (body:pan-x-pan-y ∩ list:pan-y = pan-y, should still
+     allow vertical panning). Prime suspect for "scroll is completely
+     dead on iPhone" since it's the one touch-action rule that spans
+     every scrollable card. This tool can't simulate a real iOS touch
+     gesture to confirm directly — if removing it doesn't fix it, look
+     elsewhere next. The viewport meta's user-scalable=no stays as the
+     (weaker, but scroll-safe) zoom-prevention fallback. */
+  background-image:
     radial-gradient(circle at 15% 15%, rgba(0, 240, 255, 0.08) 0%, transparent 40%),
     radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
     linear-gradient(to bottom, #05070e 0%, #080c18 100%);
