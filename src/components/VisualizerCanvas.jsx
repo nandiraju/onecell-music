@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
-import { Maximize2, Sparkles, Waves, BarChart2, Atom, Disc } from 'lucide-react';
+import { Sparkles, Waves, BarChart2, Atom, Disc, Minimize2 } from 'lucide-react';
 
 const VISUALIZER_MODES = ['nebula', 'liquid', 'spectrum', 'orbital', 'radial'];
 
@@ -13,6 +13,10 @@ const VisualizerCanvas = forwardRef(function VisualizerCanvas({
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [mode, setMode] = useState(defaultMode); // 'nebula', 'liquid', 'spectrum', 'orbital', 'radial'
+  // CSS-only fallback for browsers with no Fullscreen API support on
+  // arbitrary elements (notably iOS Safari — Element.requestFullscreen
+  // doesn't exist there at all, so the real API silently does nothing).
+  const [pseudoFullscreen, setPseudoFullscreen] = useState(false);
 
   // Audio Context & Analyzer refs
   const audioCtxRef = useRef(null);
@@ -515,12 +519,43 @@ const VisualizerCanvas = forwardRef(function VisualizerCanvas({
     }
   };
 
+  // Native fullscreen exits on Escape automatically; our CSS-only fallback
+  // needs that wired up by hand.
+  useEffect(() => {
+    if (!pseudoFullscreen) return undefined;
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setPseudoFullscreen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [pseudoFullscreen]);
+
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch((e) => console.warn(e));
+    const el = containerRef.current;
+    const requestFs = el.requestFullscreen || el.webkitRequestFullscreen
+      || el.mozRequestFullScreen || el.msRequestFullscreen;
+    const exitFs = document.exitFullscreen || document.webkitExitFullscreen
+      || document.mozCancelFullScreen || document.msExitFullscreen;
+    const fsElement = document.fullscreenElement || document.webkitFullscreenElement
+      || document.mozFullScreenElement || document.msFullscreenElement;
+
+    if (pseudoFullscreen) {
+      setPseudoFullscreen(false);
+      return;
+    }
+    if (fsElement) {
+      if (exitFs) exitFs.call(document).catch?.((e) => console.warn(e));
+      return;
+    }
+    if (requestFs) {
+      const result = requestFs.call(el);
+      // iOS Safari for in-page <div>s: the method can exist in some webkit
+      // builds but reject/no-op rather than truly entering fullscreen —
+      // fall back to the CSS-only mode when that happens.
+      Promise.resolve(result).catch(() => setPseudoFullscreen(true));
     } else {
-      document.exitFullscreen().catch((e) => console.warn(e));
+      setPseudoFullscreen(true);
     }
   };
 
@@ -538,7 +573,10 @@ const VisualizerCanvas = forwardRef(function VisualizerCanvas({
   }));
 
   return (
-    <div className="visualizer-container" ref={containerRef}>
+    <div
+      className={`visualizer-container ${pseudoFullscreen ? 'vis-pseudo-fullscreen' : ''}`}
+      ref={containerRef}
+    >
       <canvas ref={canvasRef} id="visualizer-canvas" />
 
       <div className="visualizer-overlay-bar">
@@ -581,8 +619,16 @@ const VisualizerCanvas = forwardRef(function VisualizerCanvas({
         </div>
       </div>
 
-      <button className="vis-fullscreen-btn" onClick={toggleFullscreen} title="Fullscreen Visualizer (F)">
-        <Maximize2 size={15} />
+      {/* The entry trigger lives in App.jsx's bottom nav row (Settings /
+          Maximize / Library, all in line). This exit control has to live
+          here instead: true native fullscreen only renders the fullscreened
+          element's own subtree in the browser's top layer, so a button
+          living outside .visualizer-container (like the nav-row one) is
+          literally unreachable once fullscreen is actually active — this
+          is the only way back. Only shown via CSS while fullscreen
+          (native :fullscreen or the CSS-only pseudo-fullscreen fallback). */}
+      <button className="vis-exit-fullscreen-btn" onClick={toggleFullscreen} title="Exit Fullscreen (F)">
+        <Minimize2 size={16} />
       </button>
 
       {/* Only shown via CSS while actually in fullscreen (:fullscreen) */}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ListMusic, Disc3, Settings as SettingsIcon } from 'lucide-react';
+import { ListMusic, Disc3, Settings as SettingsIcon, Maximize2 } from 'lucide-react';
 import { TRACKS_DATA } from './data/tracks.js';
 import { trackUrl } from './utils/trackUrl.js';
 import VisualizerCanvas from './components/VisualizerCanvas.jsx';
@@ -8,6 +8,7 @@ import TransportControls from './components/TransportControls.jsx';
 import Playlist from './components/Playlist.jsx';
 import ShortcutsModal from './components/ShortcutsModal.jsx';
 import SettingsScreen, { COLOR_SCHEME_OPTIONS } from './components/SettingsScreen.jsx';
+import IntroSplash from './components/IntroSplash.jsx';
 
 const SETTINGS_STORAGE_KEY = '1cell-settings';
 const DEFAULT_SETTINGS = { visualizerMode: 'spectrum', colorScheme: 'auto' };
@@ -26,14 +27,17 @@ function loadSettings() {
 }
 
 export default function App() {
+  const [showIntro, setShowIntro] = useState(true);
+  const [introForce, setIntroForce] = useState(false);
   const [tracks] = useState(TRACKS_DATA);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState('all'); // 'all', 'one', 'off'
-  const [playbackRate, setPlaybackRate] = useState(1.0);
   const [volume, setVolume] = useState(0.85);
   const [lastVolume, setLastVolume] = useState(0.85);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   // Screen navigation: Now Playing <-> Library/Settings, each its own 3D cube face
   const [activeScreen, setActiveScreen] = useState('player'); // 'player' | 'library' | 'settings'
@@ -58,6 +62,7 @@ export default function App() {
   const shufflePointerRef = useRef(0);
   const toastTimerRef = useRef(null);
   const cubeTimerRef = useRef(null);
+  const pendingAutoplayRef = useRef(false);
 
   const currentTrack = tracks[currentIndex] || tracks[0];
 
@@ -81,6 +86,17 @@ export default function App() {
     }, 1000);
   }, [isCubeAnimating, activeScreen]);
 
+  // Re-run the boot splash on demand (Settings > About). The cube is hidden
+  // underneath the full-screen intro overlay regardless of which face is
+  // active, so this just lands back on Player for when it reveals the app.
+  const handleReplayIntro = useCallback(() => {
+    if (cubeTimerRef.current) clearTimeout(cubeTimerRef.current);
+    setIsCubeAnimating(false);
+    setActiveScreen('player');
+    setIntroForce(true);
+    setShowIntro(true);
+  }, []);
+
   // Show Toast
   const showToast = useCallback((msg) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -95,6 +111,14 @@ export default function App() {
     setIsPlaying(false);
     showToast('⚠️ Could not load or decode audio track');
   }, [showToast]);
+
+  // `volume` has no HTML content attribute (unlike `muted`) — it's a
+  // pure IDL property, so it must be pushed onto the element imperatively.
+  // Without this, the <audio> element silently stays at its native default
+  // (100%) until the user's first mute/keyboard-volume interaction.
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume]);
 
   // Theme update — per-track color unless the user picked a fixed scheme
   // in Settings, in which case that scheme always wins over the track's own colors.
@@ -189,18 +213,29 @@ export default function App() {
     if (index >= tracks.length) index = 0;
 
     setCurrentIndex(index);
+    setCurrentTime(0);
 
     if (audioRef.current) {
+      // Assigning `.src` alone (even with no explicit `.load()` call)
+      // already kicks off the browser's internal resource-selection
+      // algorithm for the new source. Calling `.play()` synchronously right
+      // after races that in-flight algorithm and gets rejected with
+      // "AbortError: the play() request was interrupted by a new load
+      // request" — confirmed live, this is exactly what was silently
+      // swallowed by playAudio()'s catch and made Next/Prev/auto-advance
+      // look like they "did nothing" until Play was clicked by hand.
+      // Fix: don't call play() until the browser actually confirms the new
+      // source is ready — the onLoadedMetadata handler below flips
+      // pendingAutoplayRef and fires playAudio() at that point instead.
       audioRef.current.src = trackUrl(tracks[index].filename);
-      audioRef.current.playbackRate = playbackRate;
-      audioRef.current.load();
       if (autoPlay) {
-        playAudio();
+        pendingAutoplayRef.current = true;
       } else {
+        pendingAutoplayRef.current = false;
         pauseAudio();
       }
     }
-  }, [tracks, playbackRate, playAudio, pauseAudio]);
+  }, [tracks, pauseAudio]);
 
   // Next Track
   const playNextTrack = useCallback(() => {
@@ -287,22 +322,12 @@ export default function App() {
     });
   }, [showToast]);
 
-  // Cycle Speed
-  const cycleSpeed = useCallback(() => {
-    const speeds = [1.0, 1.25, 1.5, 2.0, 0.75];
-    const nextIdx = (speeds.indexOf(playbackRate) + 1) % speeds.length;
-    const newSpeed = speeds[nextIdx];
-    setPlaybackRate(newSpeed);
-    if (audioRef.current) {
-      audioRef.current.playbackRate = newSpeed;
-    }
-    showToast(`⚡ Playback Speed: ${newSpeed}x`);
-  }, [playbackRate, showToast]);
-
   // Volume & Mute
   const handleVolumeChange = useCallback((newVol) => {
     setVolume(newVol);
-    setLastVolume(newVol);
+    // Only remember non-zero levels — muting calls this with 0, and it must
+    // not clobber the level toggleMute is about to restore on unmute.
+    if (newVol > 0) setLastVolume(newVol);
     if (audioRef.current) {
       audioRef.current.volume = newVol;
     }
@@ -323,6 +348,14 @@ export default function App() {
       audioRef.current.currentTime = time;
     }
   }, []);
+
+  // Scrubber drag — mirrors handleSeek but also updates currentTime
+  // immediately so the thumb tracks the finger/cursor without waiting for
+  // the next native timeupdate tick (~every 250ms).
+  const handleScrub = useCallback((time) => {
+    setCurrentTime(time);
+    handleSeek(time);
+  }, [handleSeek]);
 
   // MediaSession API for macOS lock screen, keyboard media keys, AirPods
   useEffect(() => {
@@ -349,6 +382,60 @@ export default function App() {
       });
     }
   }, [currentTrack, playAudio, pauseAudio, playPrevTrack, playNextTrack, handleSeek]);
+
+  // Keep the OS media-control surface (Control Center, Android notification,
+  // lock screen) in sync with actual playback state — some mobile browsers
+  // use this to decide whether background audio stays eligible to keep
+  // running at all, not just what icon to show.
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [isPlaying]);
+
+  // Screen Wake Lock — keeps the display from auto-dimming/auto-locking
+  // while a track is playing, which is the only part of "plays through a
+  // phone lock" actually within a web page's control: it can't override a
+  // manual power-button press, and whether audio itself survives a locked
+  // screen or backgrounded tab from there is down to the OS/browser (helped
+  // by the MediaSession wiring above, which marks this as a real media
+  // session rather than a page that just happens to have an <audio> tag).
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) return undefined;
+    let wakeLockSentinel = null;
+    let cancelled = false;
+
+    const acquire = async () => {
+      try {
+        const sentinel = await navigator.wakeLock.request('screen');
+        if (cancelled) {
+          sentinel.release();
+          return;
+        }
+        wakeLockSentinel = sentinel;
+      } catch (e) {
+        // Permission denied / not allowed in this context — nothing to do.
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      // The OS releases the lock whenever the tab is backgrounded; if
+      // playback is still going when it becomes visible again, grab it
+      // back rather than leaving the screen free to sleep.
+      if (document.visibilityState === 'visible' && isPlaying && !wakeLockSentinel) {
+        acquire();
+      }
+    };
+
+    if (isPlaying) acquire();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLockSentinel) wakeLockSentinel.release()?.catch?.(() => {});
+    };
+  }, [isPlaying]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -406,7 +493,14 @@ export default function App() {
   }, [togglePlayPause, playNextTrack, playPrevTrack, toggleShuffle, cycleRepeatMode, toggleMute, volume, handleVolumeChange]);
 
   return (
-    <div className="app-container">
+    <>
+      {showIntro && (
+        <IntroSplash
+          force={introForce}
+          onComplete={() => { setShowIntro(false); setIntroForce(false); }}
+        />
+      )}
+      <div className="app-container">
       {/* Dynamic Ambient Background Glow */}
       <div className="ambient-glow" />
 
@@ -418,6 +512,14 @@ export default function App() {
         crossOrigin="anonymous"
         onError={handleAudioError}
         onEnded={playNextTrack}
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => {
+          setDuration(e.currentTarget.duration || 0);
+          if (pendingAutoplayRef.current) {
+            pendingAutoplayRef.current = false;
+            playAudio();
+          }
+        }}
       />
 
       {/* Main Dashboard */}
@@ -464,17 +566,34 @@ export default function App() {
                     isPlaying={isPlaying}
                     isShuffle={isShuffle}
                     repeatMode={repeatMode}
-                    playbackRate={playbackRate}
                     volume={volume}
                     onTogglePlayPause={togglePlayPause}
                     onPlayNext={playNextTrack}
                     onPlayPrev={playPrevTrack}
                     onToggleShuffle={toggleShuffle}
                     onCycleRepeat={cycleRepeatMode}
-                    onCycleSpeed={cycleSpeed}
-                    onVolumeChange={handleVolumeChange}
                     onToggleMute={toggleMute}
                   />
+
+                  <div className="seek-bar-wrap">
+                    <input
+                      type="range"
+                      className="seek-slider"
+                      aria-label="Seek"
+                      title="Seek"
+                      min="0"
+                      max={duration || 0}
+                      step="0.01"
+                      value={Math.min(currentTime, duration || 0)}
+                      onChange={(e) => handleScrub(parseFloat(e.target.value))}
+                      style={{
+                        background: (() => {
+                          const pct = duration ? (Math.min(currentTime, duration) / duration) * 100 : 0;
+                          return `linear-gradient(to right, var(--active-accent) ${pct}%, rgba(255, 255, 255, 0.15) ${pct}%)`;
+                        })()
+                      }}
+                    />
+                  </div>
                 </div>
               </section>
             </div>
@@ -508,6 +627,7 @@ export default function App() {
                 settings={settings}
                 onChangeVisualizerMode={handleChangeVisualizerMode}
                 onChangeColorScheme={handleChangeColorScheme}
+                onReplayIntro={handleReplayIntro}
               />
             </div>
 
@@ -536,6 +656,13 @@ export default function App() {
           >
             <SettingsIcon size={16} />
           </button>
+          <button
+            className="vis-fullscreen-nav-btn"
+            onClick={() => visualizerRef.current?.toggleFullscreen()}
+            title="Fullscreen Visualizer (F)"
+          >
+            <Maximize2 size={16} />
+          </button>
         </>
       ) : (
         <button
@@ -563,7 +690,8 @@ export default function App() {
       <div className={`toast-notice ${toastMessage ? 'show' : ''}`}>
         {toastMessage}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

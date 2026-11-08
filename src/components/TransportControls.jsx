@@ -15,15 +15,12 @@ export default function TransportControls({
   isPlaying,
   isShuffle,
   repeatMode,
-  playbackRate,
   volume,
   onTogglePlayPause,
   onPlayNext,
   onPlayPrev,
   onToggleShuffle,
   onCycleRepeat,
-  onCycleSpeed,
-  onVolumeChange,
   onToggleMute
 }) {
   return (
@@ -79,39 +76,16 @@ export default function TransportControls({
         </button>
       </div>
 
-      {/* Right Volume & Speed Controls */}
+      {/* Right: mute toggle only — speed selector and volume slider removed
+          (unused real estate; volume is still adjustable via ArrowUp/Down). */}
       <div className="dock-right">
         <button
-          className="speed-selector"
-          onClick={onCycleSpeed}
-          title="Playback Speed"
+          className="ctrl-btn"
+          onClick={onToggleMute}
+          title="Mute / Unmute (M)"
         >
-          {playbackRate}x
+          {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
         </button>
-
-        <div className="volume-control-wrap">
-          <button
-            className="ctrl-btn"
-            onClick={onToggleMute}
-            title="Mute / Unmute (M)"
-            style={{ width: '34px', height: '34px' }}
-          >
-            {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-
-          <input
-            id="volume-slider"
-            name="volume"
-            aria-label="Volume"
-            type="range"
-            className="volume-slider"
-            min="0"
-            max="100"
-            value={Math.round(volume * 100)}
-            onChange={(e) => onVolumeChange(parseFloat(e.target.value) / 100)}
-            title="Volume Slider"
-          />
-        </div>
       </div>
 
     </div>

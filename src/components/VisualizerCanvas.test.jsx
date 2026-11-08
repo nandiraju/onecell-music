@@ -40,16 +40,26 @@ describe('VisualizerCanvas', () => {
     }
   });
 
-  it('fullscreen button and ref.toggleFullscreen() both request fullscreen on the container', () => {
+  it('ref.toggleFullscreen() requests fullscreen on the container (the trigger button now lives in App.jsx\'s nav row)', () => {
     const ref = createRef();
     const { container } = setup(ref);
     const requestFullscreenSpy = vi.fn().mockResolvedValue(undefined);
     container.querySelector('.visualizer-container').requestFullscreen = requestFullscreenSpy;
 
-    fireEvent.click(screen.getByTitle('Fullscreen Visualizer (F)'));
-    expect(requestFullscreenSpy).toHaveBeenCalledTimes(1);
-
     act(() => ref.current.toggleFullscreen());
-    expect(requestFullscreenSpy).toHaveBeenCalledTimes(2);
+    expect(requestFullscreenSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('exit-fullscreen button lives inside the container (true native fullscreen only renders the fullscreened element\'s own subtree, so the nav-row trigger is unreachable once active) and calls exitFullscreen', () => {
+    const { container } = setup();
+    const visualizer = container.querySelector('.visualizer-container');
+    const exitFullscreenSpy = vi.fn().mockResolvedValue(undefined);
+    document.exitFullscreen = exitFullscreenSpy;
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: visualizer });
+
+    fireEvent.click(screen.getByTitle('Exit Fullscreen (F)'));
+    expect(exitFullscreenSpy).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
   });
 });

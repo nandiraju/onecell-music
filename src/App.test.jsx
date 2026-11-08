@@ -9,8 +9,13 @@ afterEach(cleanup);
 
 // Flush the microtask queue so audio.play()'s mocked resolved Promise (see
 // src/test/setup.js) settles and its .then(() => setIsPlaying(true)) runs
-// before we assert on play/pause state.
+// before we assert on play/pause state. Also fires the real browser's
+// loadedmetadata event that a track change now waits for before calling
+// play() (see pendingAutoplayRef in App.jsx) — jsdom never fires this on
+// its own since it doesn't simulate media loading.
 async function flush() {
+  const audio = document.querySelector('audio');
+  if (audio) fireEvent.loadedMetadata(audio);
   await act(async () => {
     await Promise.resolve();
     await Promise.resolve();
@@ -118,29 +123,34 @@ describe('App', () => {
       expect(screen.getByTitle('Repeat: ALL (R)')).toBeInTheDocument();
     });
 
-    it('KeyM mutes and restores the previous volume', () => {
+    it('KeyM mutes and restores the previous (non-default) volume', () => {
       render(<App />);
-      const slider = screen.getByTitle('Volume Slider');
-      expect(slider).toHaveValue('85');
+      const audio = document.querySelector('audio');
+      expect(audio.volume).toBeCloseTo(0.85);
+
+      // Move off the default first so a restore-to-default would be caught.
+      act(() => { fireEvent.keyDown(window, { code: 'ArrowDown' }); });
+      expect(audio.volume).toBeCloseTo(0.8);
 
       act(() => { fireEvent.keyDown(window, { code: 'KeyM' }); });
-      expect(slider).toHaveValue('0');
+      expect(audio.volume).toBe(0);
+      expect(screen.getByTitle('Mute / Unmute (M)').querySelector('.lucide-volume-x')).toBeInTheDocument();
 
       act(() => { fireEvent.keyDown(window, { code: 'KeyM' }); });
-      expect(slider).toHaveValue('85');
+      expect(audio.volume).toBeCloseTo(0.8);
     });
 
     it('ArrowUp/ArrowDown adjust volume by 5%, clamped to [0, 100]', () => {
       render(<App />);
-      const slider = screen.getByTitle('Volume Slider');
-      expect(slider).toHaveValue('85');
+      const audio = document.querySelector('audio');
+      expect(audio.volume).toBeCloseTo(0.85);
 
       act(() => { fireEvent.keyDown(window, { code: 'ArrowUp' }); });
-      expect(slider).toHaveValue('90');
+      expect(audio.volume).toBeCloseTo(0.9);
 
       act(() => { fireEvent.keyDown(window, { code: 'ArrowDown' }); });
       act(() => { fireEvent.keyDown(window, { code: 'ArrowDown' }); });
-      expect(slider).toHaveValue('80');
+      expect(audio.volume).toBeCloseTo(0.8);
     });
 
     it('KeyV cycles the visualizer mode (regression: shortcut was previously unwired)', () => {
@@ -159,6 +169,17 @@ describe('App', () => {
       visualizer.requestFullscreen = requestFullscreenSpy;
 
       act(() => { fireEvent.keyDown(window, { code: 'KeyF' }); });
+      expect(requestFullscreenSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('maximize button in the bottom nav row (in line with Settings/Library) requests fullscreen', () => {
+      render(<App />);
+      const visualizer = document.querySelector('.visualizer-container');
+      const requestFullscreenSpy = vi.fn().mockResolvedValue(undefined);
+      visualizer.requestFullscreen = requestFullscreenSpy;
+
+      expect(document.querySelector('.vis-fullscreen-nav-btn')).toBeInTheDocument();
+      act(() => { fireEvent.click(screen.getByTitle('Fullscreen Visualizer (F)')); });
       expect(requestFullscreenSpy).toHaveBeenCalledTimes(1);
     });
 

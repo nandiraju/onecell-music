@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Waves, BarChart2, Atom, Disc, Palette } from 'lucide-react';
+import { Sparkles, Waves, BarChart2, Atom, Disc, Palette, RotateCcw } from 'lucide-react';
 
 export const VISUALIZER_MODE_OPTIONS = [
   { id: 'nebula', label: 'Nebula', icon: Sparkles },
@@ -18,7 +18,7 @@ export const COLOR_SCHEME_OPTIONS = [
   { id: 'amber', label: 'Amber Heat', primary: '#f59e0b', secondary: '#ff007a' }
 ];
 
-export default function SettingsScreen({ settings, onChangeVisualizerMode, onChangeColorScheme }) {
+export default function SettingsScreen({ settings, onChangeVisualizerMode, onChangeColorScheme, onReplayIntro }) {
   return (
     <aside className="settings-panel">
       <div className="settings-header">
@@ -66,6 +66,20 @@ export default function SettingsScreen({ settings, onChangeVisualizerMode, onCha
                 <span>{scheme.label}</span>
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-section-title">About</div>
+          <div className="settings-about-card">
+            <img src="/1cell-logo.svg" alt="1Cell.Ai" className="settings-about-logo" />
+            <p className="settings-about-text">
+              1Cell.Ai Neural Audio — AI-Powered Precision Oncology, scored.
+            </p>
+            <button className="settings-replay-intro-btn" onClick={onReplayIntro}>
+              <RotateCcw size={16} />
+              Replay Intro Animation
+            </button>
           </div>
         </div>
       </div>

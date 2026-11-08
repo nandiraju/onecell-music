@@ -10,15 +10,12 @@ function setup(overrides = {}) {
     isPlaying: false,
     isShuffle: false,
     repeatMode: 'all',
-    playbackRate: 1.0,
     volume: 0.85,
     onTogglePlayPause: vi.fn(),
     onPlayNext: vi.fn(),
     onPlayPrev: vi.fn(),
     onToggleShuffle: vi.fn(),
     onCycleRepeat: vi.fn(),
-    onCycleSpeed: vi.fn(),
-    onVolumeChange: vi.fn(),
     onToggleMute: vi.fn(),
     ...overrides
   };
@@ -67,29 +64,25 @@ describe('TransportControls', () => {
     expect(props.onCycleRepeat).toHaveBeenCalledTimes(1);
   });
 
-  it('speed selector shows the current rate and cycles on click', () => {
-    const { props, rerender } = setup({ playbackRate: 1.25 });
-    const speedBtn = screen.getByTitle('Playback Speed');
-    expect(speedBtn).toHaveTextContent('1.25x');
-    fireEvent.click(speedBtn);
-    expect(props.onCycleSpeed).toHaveBeenCalledTimes(1);
-
-    rerender(<TransportControls {...props} playbackRate={2} />);
-    expect(screen.getByTitle('Playback Speed')).toHaveTextContent('2x');
-  });
-
   it('mute button fires onToggleMute', () => {
     const { props } = setup();
     fireEvent.click(screen.getByTitle('Mute / Unmute (M)'));
     expect(props.onToggleMute).toHaveBeenCalledTimes(1);
   });
 
-  it('volume slider reflects volume as 0-100 and reports changes as 0-1', () => {
-    const { props } = setup({ volume: 0.5 });
-    const slider = screen.getByTitle('Volume Slider');
-    expect(slider).toHaveValue('50');
+  it('mute button icon reflects muted (volume 0) vs unmuted state', () => {
+    const { container, rerender, props } = setup({ volume: 0.5 });
+    expect(container.querySelector('.lucide-volume-2')).toBeInTheDocument();
 
-    fireEvent.change(slider, { target: { value: '30' } });
-    expect(props.onVolumeChange).toHaveBeenCalledWith(0.3);
+    rerender(<TransportControls {...props} volume={0} />);
+    expect(container.querySelector('.lucide-volume-x')).toBeInTheDocument();
+  });
+
+  it('does not render the speed selector or volume slider (removed)', () => {
+    const { container } = setup();
+    expect(screen.queryByTitle('Playback Speed')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Volume Slider')).not.toBeInTheDocument();
+    expect(container.querySelector('.speed-selector')).not.toBeInTheDocument();
+    expect(container.querySelector('.volume-slider')).not.toBeInTheDocument();
   });
 });
