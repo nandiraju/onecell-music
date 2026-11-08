@@ -1050,6 +1050,15 @@ body {
   overscroll-behavior-y: contain;
   touch-action: pan-y;
   padding: 12px 14px;
+  /* The floating Settings/Library/Now-Playing nav buttons are
+     position:absolute against .app-container at bottom:32px, ~44px tall —
+     they sit ON TOP of this list (z-index:60) with no padding reserved
+     for them. Without this, the last track(s) scroll underneath that
+     button and it silently intercepts every click meant for them —
+     confirmed live: Playwright's own click-retry log reported
+     ".view-nav-btn intercepts pointer events" when clicking the last
+     track. This bottom padding keeps the whole list clear of that zone. */
+  padding-bottom: 90px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1363,6 +1372,11 @@ body {
 
 .settings-body {
   padding: 22px;
+  /* Same reasoning as .playlist-tracks-scroll above — the floating "Now
+     Playing" nav button overlaps this screen's bottom-right corner;
+     without reserved space, the About section's content (and its Replay
+     Intro button) ends up underneath it and unclickable. */
+  padding-bottom: 90px;
   display: flex;
   flex-direction: column;
   gap: 26px;
