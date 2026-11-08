@@ -1,0 +1,1439 @@
+/* ==========================================================================
+   1CELL AUDIO LAB - ULTRA-MODERN GLOSSY NEURAL CYBERPUNK STYLES (REACT)
+   ========================================================================== */
+
+:root {
+  --bg-deep: #05070e;
+  --bg-surface: rgba(16, 22, 42, 0.46);
+  --bg-surface-elevated: rgba(22, 32, 58, 0.6);
+  --bg-surface-hover: rgba(30, 44, 80, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-border-glow: rgba(0, 240, 255, 0.35);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 30%, rgba(255, 255, 255, 0) 55%);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-cyan: #00f0ff;
+  --accent-magenta: #ff007a;
+  --accent-violet: #8b5cf6;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  
+  --active-accent: #00f0ff;
+  --active-secondary: #7000ff;
+  --active-glow: rgba(0, 240, 255, 0.4);
+
+  --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  --shadow-gloss: 0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-glow: 0 0 25px var(--active-glow);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(0, 240, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+    linear-gradient(to bottom, #05070e 0%, #080c18 100%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Ambient dynamic back-glow */
+.ambient-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 1.2s ease, filter 1.2s ease, background 1.2s ease;
+  background: radial-gradient(circle at 35% 30%, var(--active-glow) 0%, transparent 65%);
+  opacity: 0.35;
+  filter: blur(80px);
+}
+
+/* App Container — a fixed-height app shell everywhere (not just mobile):
+   the Now Playing and Library screens are two cube faces that each fill it
+   and scroll internally, so the page itself never scrolls. */
+.app-container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 20px 20px 20px;
+  overflow: hidden;
+}
+
+.header-action-btn {
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 7px 14px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.header-action-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--glass-sheen);
+  pointer-events: none;
+}
+
+.header-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--active-accent);
+  box-shadow: 0 0 12px var(--active-glow);
+  transform: translateY(-1px);
+}
+
+.header-action-btn.active {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--active-accent);
+  color: var(--active-accent);
+}
+
+/* Main Dashboard — hosts the cube-viewport, filling all remaining height */
+.dashboard-grid {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* Perspective box: static, clips the cube's edges, never itself rotated.
+   Solid backing so the cube reads as an opaque box — without this, the
+   instant a face passes backface-hidden mid-spin you'd see straight
+   through to whatever sits behind the viewport. */
+.cube-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  perspective: 1400px;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg-deep);
+}
+
+/* The cube itself: a plain CSS transition does the rotation — App.jsx only
+   ever toggles the .cube--to-library class, nothing imperative. Pulled back
+   by half the viewport width so rotation pivots through the cube's center;
+   carries no overflow, filter, backdrop-filter or mask so Chromium never
+   flattens it for hit-testing (see the project's 3D-cube house rule).
+   Order matters: translate (pull back) THEN rotate, written in exactly
+   that order below — reversing it changes the geometry. */
+.cube {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  transform: translateZ(-50vw) rotateY(0deg);
+  transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.cube--to-library {
+  transform: translateZ(-50vw) rotateY(-90deg);
+}
+
+.cube--to-settings {
+  transform: translateZ(-50vw) rotateY(90deg);
+}
+
+/* Each face is statically positioned by plain CSS — rotate first, THEN
+   push outward along the now-rotated local Z. That's the opposite order
+   from .cube above and is why these are two separate rules rather than one
+   computed value: written as `rotateY(..) translateZ(..)` (rotate before
+   translate), reversing it silently puts the face in the wrong place. Same
+   no-overflow/filter/backdrop-filter/mask rule applies here; glass effects
+   live one level deeper, on .stage-card / .playlist-panel, which never
+   carry a 3D transform of their own. */
+.cube-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  /* The uninvolved third face is still a rigid child of .cube, so it
+     swings through frame during any transition between the other two —
+     without this it shows its own (mirrored) content once it swings past
+     edge-on. Hiding the backface makes it vanish into the opaque
+     .cube-viewport background instead, which is what makes the cube read
+     as solid rather than see-through. */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.cube-face--player {
+  transform: rotateY(0deg) translateZ(50vw);
+}
+
+.cube-face--library {
+  transform: rotateY(90deg) translateZ(50vw);
+}
+
+.cube-face--settings {
+  transform: rotateY(-90deg) translateZ(50vw);
+}
+
+.cube-face .stage-card,
+.cube-face .playlist-panel,
+.cube-face .settings-panel {
+  height: 100%;
+}
+
+/* Once a transition settles, hide the face that rotated away — it's
+   exactly edge-on at rest and its backdrop-filter blur still bleeds a
+   faint sliver past that zero-width edge otherwise. Applied only after the
+   spin completes (see isCubeAnimating in App.jsx) so the rotation itself
+   stays visible the whole way through. */
+.cube-face--settled-back {
+  visibility: hidden;
+}
+
+/* Floating nav that hops between the Now Playing and Library cube faces */
+.view-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: fixed;
+  /* Inset further than the panel's own edge (app-container's 20px padding)
+     so the button nests inside the rounded corner below it, not flush
+     with it. */
+  right: 32px;
+  bottom: 32px;
+  z-index: 60;
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  box-shadow: var(--shadow-gloss);
+  transition: all 0.2s ease;
+}
+
+.view-nav-btn:hover {
+  border-color: var(--active-accent);
+  box-shadow: 0 0 14px var(--active-glow);
+}
+
+.view-nav-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Settings entry point — icon-only, mirrored on the opposite corner from
+   the Library button, only shown on the Now Playing screen. */
+.settings-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  left: 32px;
+  bottom: 32px;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  box-shadow: var(--shadow-gloss);
+  transition: all 0.2s ease;
+}
+
+.settings-nav-btn:hover {
+  border-color: var(--active-accent);
+  box-shadow: 0 0 14px var(--active-glow);
+  transform: rotate(45deg);
+}
+
+.settings-nav-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Stage Card (Visualizer + Controls) */
+.stage-card {
+  background: var(--bg-surface);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-gloss);
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  /* Safety-net scroll: it's always a cube-face child filling the full
+     viewport height now, so if hero + controls can't fit below the
+     visualizer on a short screen, this scrolls instead of overflowing. */
+  overflow-y: auto;
+  position: relative;
+}
+
+.stage-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), var(--active-accent), transparent);
+}
+
+/* Visualizer Viewport */
+.visualizer-container {
+  position: relative;
+  width: 100%;
+  /* Dominant share of the Now Playing screen on any viewport, now that it
+     never has to share the screen with the catalog. */
+  height: 62vh;
+  min-height: 440px;
+  max-height: 760px;
+  background: radial-gradient(circle at center, #090e1f 0%, #05070e 100%);
+  overflow: hidden;
+  border-bottom: 1px solid var(--glass-border);
+  transition: height 0.3s ease;
+}
+
+.visualizer-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--glass-sheen);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.visualizer-container canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.visualizer-overlay-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Full-bleed strip spanning the visualizer edge-to-edge — the container's
+   own overflow:hidden + border-radius rounds the outer top corners, so
+   this itself stays square. Scrolls horizontally if the chips overflow. */
+.vis-modes-group {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+  background: rgba(8, 12, 24, 0.6);
+  backdrop-filter: blur(12px);
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.vis-modes-group::-webkit-scrollbar {
+  display: none;
+}
+
+.vis-mode-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 13px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vis-mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.vis-mode-btn.active {
+  color: #05070e;
+  background: var(--active-accent);
+  font-weight: 700;
+  box-shadow: 0 0 12px var(--active-glow);
+}
+
+/* Fullscreen toggle — bottom-center of the visualizer, clear of the
+   full-width mode strip now pinned at the top. */
+.vis-fullscreen-btn {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: rgba(8, 12, 24, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Branding shown only while the visualizer is actually fullscreen — hidden
+   the rest of the time since the hero row already carries the logo.
+   Stacked just above the fullscreen-toggle button so both stay centered at
+   the bottom without overlapping. */
+.vis-fullscreen-logo {
+  display: none;
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  height: 28px;
+  width: auto;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.visualizer-container:fullscreen .vis-fullscreen-logo,
+.visualizer-container:-webkit-full-screen .vis-fullscreen-logo {
+  display: block;
+}
+
+.visualizer-container:fullscreen .vis-fullscreen-btn,
+.visualizer-container:-webkit-full-screen .vis-fullscreen-btn {
+  bottom: 54px;
+}
+
+.vis-fullscreen-btn:hover {
+  color: var(--active-accent);
+  border-color: var(--active-accent);
+  box-shadow: 0 0 10px var(--active-glow);
+}
+
+/* Active Track Panel */
+.active-track-panel {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.track-hero-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.artwork-container {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+}
+
+.hologram-disc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #1a2238 0%, #070a13 70%, #000000 100%);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 20px var(--active-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.4s ease;
+}
+
+.hologram-disc.playing {
+  animation: spin-vinyl 10s linear infinite;
+}
+
+.disc-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+.disc-ring.r1 { width: 80%; height: 80%; }
+.disc-ring.r2 { width: 58%; height: 58%; }
+
+.disc-center {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: conic-gradient(from 45deg, var(--active-accent), var(--active-secondary), var(--active-accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 12px var(--active-accent);
+}
+
+.disc-hole {
+  width: 10px;
+  height: 10px;
+  background: #05070e;
+  border-radius: 50%;
+}
+
+.track-hero-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pill-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.badge-bpm {
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--active-accent);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+}
+
+.badge-genre {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.badge-vibe {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.track-hero-title {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-hero-version {
+  font-size: 15px;
+  color: var(--active-accent);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.track-hero-logo {
+  height: 26px;
+  width: auto;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0.92;
+  align-self: center;
+}
+
+/* Track Intelligence & Bio */
+.track-intelligence-card {
+  background: rgba(8, 12, 24, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.3s ease;
+}
+
+.track-intelligence-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(12, 18, 34, 0.7);
+}
+
+.intel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.intel-title {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--active-accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.intel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .intel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.intel-box {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.intel-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.intel-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.intel-description {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--active-accent);
+}
+
+/* Primary Transport Controls */
+.controls-dock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0 0;
+  gap: 16px;
+}
+
+.dock-left, .dock-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dock-center {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ctrl-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.ctrl-btn.active {
+  background: rgba(0, 240, 255, 0.16);
+  color: var(--active-accent);
+  border-color: var(--active-accent);
+  box-shadow: 0 0 14px var(--active-glow);
+}
+
+.ctrl-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--active-accent);
+  box-shadow: 0 0 6px var(--active-accent);
+}
+
+.play-pause-btn {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #ffffff 0%, #d1d5db 100%);
+  border: none;
+  color: #05070e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 28px rgba(255, 255, 255, 0.4), inset 0 2px 2px rgba(255, 255, 255, 0.8);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.play-pause-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 35px var(--active-glow), 0 0 15px #ffffff;
+}
+
+.play-pause-btn:active {
+  transform: scale(0.96);
+}
+
+.volume-control-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-slider {
+  -webkit-appearance: none;
+  width: 80px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 8px var(--active-accent);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+}
+
+.speed-selector {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.speed-selector:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Playlist Panel — always a .cube-face child now (see below), which sets
+   its actual height to 100% of the face; sticky positioning doesn't apply
+   inside that absolutely-positioned, non-scrolling ancestor. */
+.playlist-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-gloss);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: static;
+}
+
+.playlist-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), var(--active-accent), transparent);
+  z-index: 1;
+}
+
+.playlist-header {
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.playlist-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.playlist-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playlist-count {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.search-box-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  background: rgba(7, 10, 20, 0.7);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 9px 14px 9px 36px;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: var(--active-accent);
+  box-shadow: 0 0 12px var(--active-glow);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filter-chips-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.filter-chips-row::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.filter-chip.active {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: var(--active-accent);
+  color: var(--active-accent);
+  font-weight: 600;
+}
+
+.playlist-tracks-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.playlist-tracks-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.playlist-tracks-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.track-item-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.track-item-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(3px);
+}
+
+.track-item-card.active {
+  background: rgba(0, 240, 255, 0.09);
+  border-color: var(--active-accent);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.18);
+}
+
+.track-num-eq {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mini-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.eq-bar {
+  width: 3px;
+  background: var(--active-accent);
+  border-radius: 1px;
+  animation: eq-bounce 0.8s ease-in-out infinite alternate;
+}
+.eq-bar:nth-child(1) { height: 60%; animation-delay: 0.1s; }
+.eq-bar:nth-child(2) { height: 100%; animation-delay: 0.3s; }
+.eq-bar:nth-child(3) { height: 40%; animation-delay: 0.2s; }
+
+.track-item-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-item-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* Dedicated right rail: duration sits centered above the info button, which
+   always reserves its slot so the row never reflows on hover. */
+.track-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.track-item-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-item-card.active .track-item-title {
+  color: var(--active-accent);
+}
+
+.track-item-duration {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.track-item-version {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-item-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.mini-badge {
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.mini-badge-bpm {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+.mini-badge-genre {
+  background: rgba(139, 92, 246, 0.12);
+  color: #c4b5fd;
+}
+
+.track-item-info-btn {
+  opacity: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.track-item-card:hover .track-item-info-btn {
+  opacity: 1;
+}
+
+.track-item-info-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Modals & Toast Notice */
+.toast-notice {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--active-accent);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 15px var(--active-glow);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.toast-notice.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* Opacity/scale here are owned by GSAP (see ShortcutsModal.jsx) — this
+   stays pure positioning/visual styling so the two never fight. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 4, 10, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  pointer-events: auto;
+  padding: 20px;
+}
+
+.modal-card {
+  background: var(--bg-surface-elevated);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  max-width: 580px;
+  width: 100%;
+  padding: 24px 28px;
+  box-shadow: var(--shadow-gloss), 0 20px 60px rgba(0, 0, 0, 0.6);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.modal-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--glass-sheen);
+  pointer-events: none;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+}
+
+.kbd-badge {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   Settings Screen (third cube face)
+   ========================================================================== */
+.settings-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-gloss);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  position: relative;
+}
+
+.settings-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), var(--active-accent), transparent);
+  z-index: 1;
+}
+
+.settings-header {
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-body {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.settings-section-title {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.settings-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.settings-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-mode-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.settings-mode-btn.active {
+  color: #05070e;
+  background: var(--active-accent);
+  border-color: var(--active-accent);
+  box-shadow: 0 0 16px var(--active-glow);
+  font-weight: 700;
+}
+
+.settings-scheme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.settings-scheme-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-scheme-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.settings-scheme-btn.active {
+  color: var(--text-primary);
+  border-color: var(--active-accent);
+  box-shadow: 0 0 16px var(--active-glow);
+  font-weight: 700;
+}
+
+.settings-scheme-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   MOBILE: visualizer-dominant glass layout
+   ========================================================================== */
+@media (max-width: 760px) {
+  .app-container {
+    padding: 10px 8px 10px;
+  }
+
+  /* Floating nav sits closer to the thumb-reachable corner on phones, but
+     still nested inside the panel's rounded corner rather than flush with it. */
+  .view-nav-btn {
+    right: 18px;
+    bottom: 18px;
+    padding: 10px 16px;
+    font-size: 12.5px;
+  }
+
+  .settings-nav-btn {
+    left: 18px;
+    bottom: 18px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .vis-fullscreen-btn {
+    bottom: 10px;
+  }
+
+  /* Compact glass control strip below the visualizer */
+  .active-track-panel {
+    padding: 14px 14px 12px;
+    gap: 12px;
+  }
+
+  /* The visualizer already reads as the "artwork" — drop the duplicate disc
+     and the metadata pill row so the hero block stays to 2-3 compact lines. */
+  .artwork-container {
+    display: none;
+  }
+
+  .track-hero-tags {
+    display: none;
+  }
+
+  .track-hero-title {
+    font-size: 20px;
+    white-space: normal;
+  }
+
+  .track-hero-logo {
+    height: 18px;
+  }
+
+  .controls-dock {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 10px;
+  }
+
+  .playlist-header {
+    padding: 14px 14px 10px;
+  }
+
+  .filter-chip {
+    padding: 6px 12px;
+  }
+
+  /* Hover-only reveal is unreachable on touch — keep it visible */
+  .track-item-info-btn {
+    opacity: 1;
+  }
+}
+
+/* Animations */
+@keyframes spin-vinyl {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes eq-bounce {
+  0% { height: 20%; }
+  100% { height: 100%; }
+}
+
