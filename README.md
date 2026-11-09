@@ -1,4 +1,4 @@
-# 1CELL.AI // Neural Audio Station 🎵⚛️
+# 1Cell Audio Studio 🎵⚛️
 
 An ultra-modern, glossy, cybernetic **React web application** built with **React 19 + Vite** for the **1Cell AI Audio Collection**. Features real-time Web Audio API visualizers, seamless background playback with system media controls, intelligent acoustic descriptions, and rocket-fast performance.
 

@@ -1,6 +1,6 @@
 {
-  "name": "1CELL.AI Neural Audio Station",
-  "short_name": "1CELL.AI",
+  "name": "1Cell Audio Studio",
+  "short_name": "1Cell Audio",
   "description": "An AI-generated music collection with real-time Web Audio visualizers, background playback, and acoustic intelligence.",
   "start_url": "/",
   "display": "standalone",
