@@ -1,53 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import gsap from 'gsap';
+import React, { useEffect } from 'react';
 
 export default function ShortcutsModal({ isOpen, onClose, modalData, onPlayTrack }) {
-  // Keep the modal mounted a moment past isOpen:false so the close tween
-  // can finish before it actually leaves the DOM.
-  const [shouldRender, setShouldRender] = useState(isOpen);
-  const overlayRef = useRef(null);
-  const cardRef = useRef(null);
-
-  useEffect(() => {
-    if (isOpen) setShouldRender(true);
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!shouldRender) return;
-    const overlay = overlayRef.current;
-    const card = cardRef.current;
-    if (!overlay || !card) return;
-
-    if (isOpen) {
-      gsap.set(overlay, { opacity: 0 });
-      gsap.set(card, { opacity: 0, scale: 0.86, y: 26 });
-      gsap.to(overlay, { opacity: 1, duration: 0.25, ease: 'power2.out' });
-      // The "buttery spring": scale/position overshoot past 1 and settle —
-      // opacity itself stays a plain fade, springing opacity reads as flicker.
-      gsap.to(card, {
-        opacity: 1,
-        scale: 1,
-        y: 0,
-        duration: 0.6,
-        ease: 'back.out(1.7)'
-      });
-    } else {
-      gsap.to(overlay, { opacity: 0, duration: 0.2, ease: 'power1.in' });
-      gsap.to(card, {
-        opacity: 0,
-        scale: 0.92,
-        y: 16,
-        duration: 0.22,
-        ease: 'power2.in',
-        onComplete: () => setShouldRender(false)
-      });
-    }
-
-    return () => {
-      gsap.killTweensOf([overlay, card]);
-    };
-  }, [isOpen, shouldRender]);
-
   // Close on Escape key press
   useEffect(() => {
     if (!isOpen) return;
@@ -60,11 +13,11 @@ export default function ShortcutsModal({ isOpen, onClose, modalData, onPlayTrack
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!shouldRender) return null;
+  if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" ref={overlayRef} onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-card" ref={cardRef} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         {modalData ? (
           // Track Details View
           <>
