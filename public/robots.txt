@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://1cell.ai/sitemap.xml
+Sitemap: https://music.triomx.com/sitemap.xml
