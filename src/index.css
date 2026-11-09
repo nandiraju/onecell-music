@@ -167,121 +167,161 @@ body {
 }
 
 /* Perspective box: static, clips the cube's edges, never itself rotated.
-   Solid backing so the cube reads as an opaque box — without this, the
-   instant a face passes backface-hidden mid-spin you'd see straight
-   through to whatever sits behind the viewport. */
+   Solid backing so the cube reads as an opaque box. When settled, perspective
+   is removed so WebKit can mount native iOS scrolling containers. */
 .cube-viewport {
   position: relative;
   width: 100%;
   height: 100%;
-  perspective: 1400px;
   overflow: hidden;
   pointer-events: auto;
-  touch-action: pan-x pan-y;
   background: var(--bg-deep);
 }
 
-/* The cube itself: a plain CSS transition does the rotation — App.jsx only
-   ever toggles the .cube--to-library class, nothing imperative. Pulled back
-   by half the viewport width so rotation pivots through the cube's center;
-   carries no overflow, filter, backdrop-filter or mask so Chromium never
-   flattens it for hit-testing (see the project's 3D-cube house rule).
-   Order matters: translate (pull back) THEN rotate, written in exactly
-   that order below — reversing it changes the geometry. */
+.cube-viewport--animating {
+  perspective: 1400px;
+}
+
+.cube-viewport--settled {
+  perspective: none !important;
+}
+
+/* The cube itself:
+   - When animating: 3D context with preserve-3d and keyframe rotation.
+   - When settled: 2D flat context so mobile Safari/WebKit activates native
+     UIScrollView with asynchronous momentum scrolling. */
 .cube {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  pointer-events: auto;
+}
+
+.cube--animating {
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
-  pointer-events: auto;
-  touch-action: pan-x pan-y;
-  transform: translateZ(-50vw) rotateY(0deg);
-  transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
-  /* Forces the 3D context onto its own compositor layer from first paint.
-     Without this, mobile Safari sometimes renders the initial state as a
-     flat 2D fallback and only promotes it to a real 3D layer after the
-     first transform change (i.e. the first tap) — matches the reported
-     "cube doesn't render right until a few clicks in" symptom. */
   will-change: transform;
 }
 
-.cube--to-library {
-  transform: translateZ(-50vw) rotateY(-90deg);
+.cube--settled {
+  transform: none !important;
+  transform-style: flat !important;
+  -webkit-transform-style: flat !important;
+  transition: none !important;
+  animation: none !important;
+  will-change: auto !important;
 }
 
-.cube--to-settings {
-  transform: translateZ(-50vw) rotateY(90deg);
-}
-
-/* Each face is statically positioned by plain CSS — rotate first, THEN
-   push outward along the now-rotated local Z. That's the opposite order
-   from .cube above and is why these are two separate rules rather than one
-   computed value: written as `rotateY(..) translateZ(..)` (rotate before
-   translate), reversing it silently puts the face in the wrong place. Same
-   no-overflow/filter/backdrop-filter/mask rule applies here (.stage-card /
-   .playlist-panel / .settings-panel, one level deeper, no longer use
-   backdrop-filter at all — see those rules for why). */
+/* 3D Face Positions during animation */
 .cube-face {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: auto;
-  touch-action: pan-x pan-y;
-  /* The uninvolved third face is still a rigid child of .cube, so it
-     swings through frame during any transition between the other two —
-     without this it shows its own (mirrored) content once it swings past
-     edge-on. Hiding the backface makes it vanish into the opaque
-     .cube-viewport background instead, which is what makes the cube read
-     as solid rather than see-through. */
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
 }
 
-.cube-face--player {
+.cube--animating .cube-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  pointer-events: none;
+}
+
+.cube--animating .cube-face--player {
   transform: rotateY(0deg) translateZ(50vw);
 }
 
-.cube-face--library {
+.cube--animating .cube-face--library {
   transform: rotateY(90deg) translateZ(50vw);
 }
 
-.cube-face--settings {
+.cube--animating .cube-face--settings {
   transform: rotateY(-90deg) translateZ(50vw);
+}
+
+/* Settled Faces: 100% 2D flat layer */
+.cube--settled .cube-face {
+  transform: none !important;
+  transform-style: flat !important;
+  -webkit-transform-style: flat !important;
+  will-change: auto !important;
+}
+
+.cube-face--settled-active {
+  backface-visibility: visible !important;
+  -webkit-backface-visibility: visible !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 10;
+}
+
+.cube-face--settled-back {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: -1;
+}
+
+/* Animations for each cube rotation hop */
+.cube--anim-player-to-library {
+  animation: cube-anim-player-to-library 0.85s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.cube--anim-library-to-player {
+  animation: cube-anim-library-to-player 0.85s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.cube--anim-player-to-settings {
+  animation: cube-anim-player-to-settings 0.85s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.cube--anim-settings-to-player {
+  animation: cube-anim-settings-to-player 0.85s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@keyframes cube-anim-player-to-library {
+  0% {
+    transform: translateZ(-50vw) rotateY(0deg);
+  }
+  100% {
+    transform: translateZ(-50vw) rotateY(-90deg);
+  }
+}
+
+@keyframes cube-anim-library-to-player {
+  0% {
+    transform: translateZ(-50vw) rotateY(-90deg);
+  }
+  100% {
+    transform: translateZ(-50vw) rotateY(0deg);
+  }
+}
+
+@keyframes cube-anim-player-to-settings {
+  0% {
+    transform: translateZ(-50vw) rotateY(0deg);
+  }
+  100% {
+    transform: translateZ(-50vw) rotateY(90deg);
+  }
+}
+
+@keyframes cube-anim-settings-to-player {
+  0% {
+    transform: translateZ(-50vw) rotateY(90deg);
+  }
+  100% {
+    transform: translateZ(-50vw) rotateY(0deg);
+  }
 }
 
 .cube-face .stage-card,
 .cube-face .playlist-panel,
 .cube-face .settings-panel {
   height: 100%;
-}
-
-/* Once a transition settles, hide the face that rotated away — it's
-   exactly edge-on at rest and its backdrop-filter blur still bleeds a
-   faint sliver past that zero-width edge otherwise. Applied only after the
-   spin completes (see isCubeAnimating in App.jsx) so the rotation itself
-   stays visible the whole way through. */
-.cube-face--settled-back {
-  visibility: hidden;
-}
-
-/* Applied to whichever face is both active and not mid-transition.
-   backface-visibility:hidden only has any visual effect once a face is
-   rotated past 90° — at rest the active face is always front-facing, so
-   dropping it back to visible here is a pure no-op visually. It's a
-   genuine suspect for iOS Safari specifically: backface-visibility on an
-   ancestor of a touch-scrolling region, inside a 3D transform context,
-   is a separate well-documented class of WebKit touch/scroll bug from
-   the backdrop-filter one fixed alongside this. */
-.cube-face--settled-active {
-  backface-visibility: visible;
-  -webkit-backface-visibility: visible;
-  transform-style: flat;
-  -webkit-transform-style: flat;
-  touch-action: pan-y pan-x;
-  pointer-events: auto;
+  max-height: 100%;
 }
 
 /* Floating nav that hops between the Now Playing and Library cube faces */
@@ -392,7 +432,6 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
   position: relative;
 }
 
@@ -460,8 +499,6 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-  overscroll-behavior-x: contain;
   pointer-events: auto;
   background: rgba(8, 12, 24, 0.9);
   padding: 12px 18px;
@@ -699,8 +736,6 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-  overscroll-behavior-x: contain;
   scrollbar-width: none;
   padding-bottom: 3px;
 }
@@ -855,7 +890,6 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
   scrollbar-width: none;
 }
 
@@ -947,12 +981,6 @@ body {
    its actual height to 100% of the face; sticky positioning doesn't apply
    inside that absolutely-positioned, non-scrolling ancestor. */
 .playlist-panel {
-  /* No backdrop-filter here (was blur(28px) saturate(190%)) — iOS Safari
-     has well-documented bugs where backdrop-filter on an element nested
-     inside a 3D transform context (this card lives inside .cube, which
-     is perspective/preserve-3d) can break touch-scroll recognition on
-     its own descendants. Solid-ish background instead of translucent +
-     blur, since there's no blur left to soften what shows through. */
   background: rgba(13, 18, 36, 0.92);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -960,10 +988,9 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Was `static` — inconsistent with .stage-card/.settings-panel (both
-     relative) and broke ::before's absolute positioning, which fell back
-     to resolving against a further-up ancestor instead of this card. */
   position: relative;
+  height: 100%;
+  max-height: 100%;
 }
 
 .playlist-panel::before {
@@ -978,6 +1005,7 @@ body {
 }
 
 .playlist-header {
+  flex-shrink: 0;
   padding: 20px 22px 14px;
   border-bottom: 1px solid var(--glass-border);
   display: flex;
@@ -1047,8 +1075,6 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 240, 255, 0.25) transparent;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-  overscroll-behavior-x: contain;
 }
 
 .filter-chips-row::-webkit-scrollbar {
@@ -1085,19 +1111,12 @@ body {
 }
 
 .playlist-tracks-scroll {
-  flex: 1;
-  /* Explicit, not relying on the spec rule that overflow != visible
-     already implies automatic min-size:0 on a flex item — older/buggy
-     WebKit has not always honored that correctly, which would leave this
-     item refusing to shrink below its content size and never actually
-     triggering its own scrollbar. Costs nothing on engines that already
-     get it right. */
+  flex: 1 1 0%;
   min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-  overscroll-behavior-y: contain;
   padding: 12px 14px;
   /* The floating Settings/Library/Now-Playing nav buttons are
      position:absolute against .app-container at bottom:32px, ~44px tall —
@@ -1232,7 +1251,6 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
   scrollbar-width: none;
 }
 
@@ -1332,7 +1350,6 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -1661,7 +1678,6 @@ body {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
     gap: 6px;
     padding-bottom: 2px;
     scrollbar-width: none;
@@ -1685,7 +1701,6 @@ body {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
     justify-content: flex-start;
     gap: 12px;
     padding: 6px 2px;
@@ -1704,7 +1719,6 @@ body {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
     gap: 10px;
     padding-bottom: 6px;
     scrollbar-width: none;
@@ -1721,7 +1735,6 @@ body {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y;
     gap: 10px;
     padding-bottom: 6px;
     scrollbar-width: none;

@@ -46,6 +46,7 @@ export default function App() {
   // Screen navigation: Now Playing <-> Library/Settings, each its own 3D cube face
   const [activeScreen, setActiveScreen] = useState('player'); // 'player' | 'library' | 'settings'
   const [isCubeAnimating, setIsCubeAnimating] = useState(false);
+  const [transitionName, setTransitionName] = useState(null);
 
   // User preferences, persisted to localStorage
   const [settings, setSettings] = useState(loadSettings);
@@ -79,15 +80,17 @@ export default function App() {
   // until it settles.
   const switchScreen = useCallback((target) => {
     if (isCubeAnimating || target === activeScreen) return;
+    const direction = `${activeScreen}-to-${target}`;
+    setTransitionName(direction);
     setIsCubeAnimating(true);
     setActiveScreen(target);
 
-    // Safety fallback: if transitionEnd fails to fire (e.g. background tab or reduced motion),
-    // ensure cube animation lock is released.
+    // Safety fallback: if animationEnd/transitionEnd fails to fire, release the cube lock.
     if (cubeTimerRef.current) clearTimeout(cubeTimerRef.current);
     cubeTimerRef.current = setTimeout(() => {
       setIsCubeAnimating(false);
-    }, 1000);
+      setTransitionName(null);
+    }, 900);
   }, [isCubeAnimating, activeScreen]);
 
   // Re-run the boot splash on demand (Settings > About). The cube is hidden
@@ -96,6 +99,7 @@ export default function App() {
   const handleReplayIntro = useCallback(() => {
     if (cubeTimerRef.current) clearTimeout(cubeTimerRef.current);
     setIsCubeAnimating(false);
+    setTransitionName(null);
     setActiveScreen('player');
     setIntroForce(true);
     setShowIntro(true);
@@ -537,13 +541,21 @@ export default function App() {
             The rotation is pure CSS (transition: transform on .cube);
             toggling the .cube--to-library / .cube--to-settings class is
             the only thing JS ever does to it. */}
-        <div className="cube-viewport">
+        <div className={`cube-viewport ${isCubeAnimating ? 'cube-viewport--animating' : 'cube-viewport--settled'}`}>
           <div
-            className={`cube ${activeScreen === 'library' ? 'cube--to-library' : ''} ${activeScreen === 'settings' ? 'cube--to-settings' : ''}`}
+            className={`cube ${activeScreen === 'library' ? 'cube--to-library' : ''} ${activeScreen === 'settings' ? 'cube--to-settings' : ''} ${isCubeAnimating ? `cube--animating cube--anim-${transitionName}` : `cube--settled cube--settled-${activeScreen}`}`}
+            onAnimationEnd={(e) => {
+              if (e.target === e.currentTarget) {
+                if (cubeTimerRef.current) clearTimeout(cubeTimerRef.current);
+                setIsCubeAnimating(false);
+                setTransitionName(null);
+              }
+            }}
             onTransitionEnd={(e) => {
               if (e.target === e.currentTarget && e.propertyName === 'transform') {
                 if (cubeTimerRef.current) clearTimeout(cubeTimerRef.current);
                 setIsCubeAnimating(false);
+                setTransitionName(null);
               }
             }}
           >
