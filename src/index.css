@@ -43,6 +43,30 @@
   padding: 0;
 }
 
+/* Sleek cyber scrollbar styling for all auto-scrolling containers */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--active-accent);
+}
+
 html {
   /* Prevents iOS auto-boosting font sizes after rotation/reflow — a second,
      independent source of the "pinch zooms into huge text" bug alongside
@@ -152,7 +176,8 @@ body {
   height: 100%;
   perspective: 1400px;
   overflow: hidden;
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: pan-x pan-y;
   background: var(--bg-deep);
 }
 
@@ -170,7 +195,8 @@ body {
   height: 100%;
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
-  pointer-events: none;
+  pointer-events: auto;
+  touch-action: pan-x pan-y;
   transform: translateZ(-50vw) rotateY(0deg);
   transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
   /* Forces the 3D context onto its own compositor layer from first paint.
@@ -203,6 +229,7 @@ body {
   width: 100%;
   height: 100%;
   pointer-events: auto;
+  touch-action: pan-x pan-y;
   /* The uninvolved third face is still a rigid child of .cube, so it
      swings through frame during any transition between the other two —
      without this it shows its own (mirrored) content once it swings past
@@ -251,6 +278,10 @@ body {
 .cube-face--settled-active {
   backface-visibility: visible;
   -webkit-backface-visibility: visible;
+  transform-style: flat;
+  -webkit-transform-style: flat;
+  touch-action: pan-y pan-x;
+  pointer-events: auto;
 }
 
 /* Floating nav that hops between the Now Playing and Library cube faces */
@@ -352,11 +383,6 @@ body {
 
 /* Stage Card (Visualizer + Controls) */
 .stage-card {
-  /* No backdrop-filter — same reasoning as .playlist-panel/.settings-panel:
-     iOS Safari's backdrop-filter has well-documented bugs with
-     touch-scroll on descendants when nested inside a 3D transform
-     context (this card lives inside .cube). This one also carries its
-     own safety-net overflow-y:auto below. */
   background: rgba(13, 18, 36, 0.92);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -364,11 +390,9 @@ body {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
-  /* Safety-net scroll: it's always a cube-face child filling the full
-     viewport height now, so if hero + controls can't fit below the
-     visualizer on a short screen, this scrolls instead of overflowing. */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   position: relative;
 }
 
@@ -409,6 +433,7 @@ body {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: pan-y;
 }
 
 .visualizer-overlay-bar {
@@ -419,7 +444,7 @@ body {
   display: flex;
   align-items: center;
   z-index: 10;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 /* Full-bleed strip spanning the visualizer edge-to-edge — the container's
@@ -427,11 +452,16 @@ body {
    this itself stays square. Scrolls horizontally if the chips overflow. */
 .vis-modes-group {
   display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
   width: 100%;
   overflow-x: auto;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
   pointer-events: auto;
   background: rgba(8, 12, 24, 0.9);
   padding: 12px 18px;
@@ -439,7 +469,12 @@ body {
 }
 
 .vis-modes-group::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.vis-modes-group::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }
 
 .vis-mode-btn {
@@ -657,13 +692,26 @@ body {
 
 .track-hero-tags {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-bottom: 3px;
+}
+
+.track-hero-tags::-webkit-scrollbar {
+  display: none;
 }
 
 .pill-badge {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 11px;
   font-family: var(--font-mono);
   padding: 3px 9px;
@@ -804,6 +852,15 @@ body {
   justify-content: space-between;
   padding: 10px 0 0;
   gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-width: none;
+}
+
+.controls-dock::-webkit-scrollbar {
+  display: none;
 }
 
 /* Equal-width flexible edges so the transport cluster stays truly centered
@@ -982,22 +1039,37 @@ body {
 
 .filter-chips-row {
   display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
   overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 240, 255, 0.25) transparent;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
 }
-.filter-chips-row::-webkit-scrollbar { display: none; }
+
+.filter-chips-row::-webkit-scrollbar {
+  height: 4px;
+}
+.filter-chips-row::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
 
 .filter-chip {
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--glass-border);
   color: var(--text-secondary);
   font-size: 11px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
   cursor: pointer;
   white-space: nowrap;
+  user-select: none;
 }
 
 .filter-chip:hover {
@@ -1022,7 +1094,10 @@ body {
      get it right. */
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
   padding: 12px 14px;
   /* The floating Settings/Library/Now-Playing nav buttons are
      position:absolute against .app-container at bottom:32px, ~44px tall —
@@ -1150,12 +1225,24 @@ body {
 
 .track-item-meta-row {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
   margin-top: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-width: none;
+}
+
+.track-item-meta-row::-webkit-scrollbar {
+  display: none;
 }
 
 .mini-badge {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 9.5px;
   font-family: var(--font-mono);
   padding: 1px 6px;
@@ -1228,6 +1315,8 @@ body {
   z-index: 999;
   pointer-events: auto;
   padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-card {
@@ -1236,10 +1325,14 @@ body {
   border-radius: var(--radius-lg);
   max-width: 580px;
   width: 100%;
+  max-height: calc(100dvh - 40px);
   padding: 24px 28px;
   box-shadow: var(--shadow-gloss), 0 20px 60px rgba(0, 0, 0, 0.6);
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -1563,6 +1656,17 @@ body {
   }
 
   .track-hero-tags {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    gap: 6px;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .track-hero-tags::-webkit-scrollbar {
     display: none;
   }
 
@@ -1576,9 +1680,56 @@ body {
   }
 
   .controls-dock {
-    flex-wrap: wrap;
-    justify-content: center;
-    row-gap: 10px;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 6px 2px;
+    scrollbar-width: none;
+  }
+  .controls-dock::-webkit-scrollbar {
+    display: none;
+  }
+  .dock-left, .dock-center, .dock-right {
+    flex-shrink: 0;
+  }
+
+  .settings-mode-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    gap: 10px;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+  .settings-mode-grid::-webkit-scrollbar { display: none; }
+  .settings-mode-btn {
+    flex-shrink: 0;
+    min-width: 100px;
+  }
+
+  .settings-scheme-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    gap: 10px;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+  .settings-scheme-grid::-webkit-scrollbar { display: none; }
+  .settings-scheme-btn {
+    flex-shrink: 0;
+    min-width: 140px;
   }
 
   .playlist-header {
@@ -1586,6 +1737,7 @@ body {
   }
 
   .filter-chip {
+    flex-shrink: 0;
     padding: 6px 12px;
   }
 
